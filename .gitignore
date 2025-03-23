@@ -1,0 +1,10 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Rprofile
+.lintr
+data/**
+misc/**
+renv/**
+BIOF520-Assignment4.Rproj
