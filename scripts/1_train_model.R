@@ -5,6 +5,8 @@ library(caret)
 library(missForest)
 library(survival)
 library(survminer)
+library(timeROC)
+
 
 # load data
 # remove NAs in Recurrence since they would not be useful anyways
@@ -82,14 +84,12 @@ test_data_filtered$risk_group <- ifelse(test_data_filtered$risk_score > threshol
 # plot kaplan-meier curves
 ggsurvplot(survfit(Surv(RFS_time, Recurrence) ~ risk_group, data = filtered_data),
   pval = TRUE, conf.int = TRUE, risk.table = FALSE,
-  legend.title = "Risk Group", xlab = "Time (Months)"
-)
+  legend.title = "Risk Group", xlab = "Time (Months)")
 
 ggsurvplot(survfit(Surv(RFS_time, Recurrence) ~ risk_group, data = test_data_filtered),
   pval = TRUE, conf.int = TRUE, risk.table = FALSE,
   legend.title = "Risk Group", legend.labs = c("Low Risk", "High Risk"),
-  title = "Kaplan-Meier Curves for Test Set"
-)
+  title = "Kaplan-Meier Curves for Test Set")
 
 
 # load in validation data set
@@ -116,42 +116,23 @@ knowles_imputed$risk_group <- ifelse(knowles_imputed$risk_score > threshold_risk
 ggsurvplot(survfit(Surv(RFS_time, Recurrence) ~ risk_group, data = knowles_imputed),
   pval = TRUE, conf.int = TRUE, risk.table = FALSE,
   legend.title = "Risk Group", legend.labs = c("Low Risk", "High Risk"), palette = c("#619CFF", "#F8766D"),
-  title = "Kaplan-Meier Curves for KNOWLES"
-)
+  title = "Kaplan-Meier Curves for KNOWLES")
 
 # create decision matrix (confusion table)
 decision_matrix <- table(
   Predicted = knowles_imputed$risk_group,
-  Actual = ifelse(knowles_imputed$Recurrence == 1, "Recurred", "Not Recurred")
-)
+  Actual = ifelse(knowles_imputed$Recurrence == 1, "Recurred", "Not Recurred"))
 
-# print the decision matrix
+# print decision matrix
 print(decision_matrix)
 
+# Compute time-dependent AUC at 12 months
+auc_result <- timeROC(T = knowles_imputed$RFS_time,
+  delta = knowles_imputed$Recurrence,
+  marker = knowles_imputed$risk_score,
+  cause = 1,
+  times = 12)
 
-library(rmda)
-# extract baseline survival function at a chosen time point (e.g., 3 years = 36 months)
-base_surv <- basehaz(cox_model, centered = FALSE)
-
-# choose the time point for probability estimation
-time_point <- 6
-baseline_survival_at_time <- exp(-base_surv$hazard[which.min(abs(base_surv$time - time_point))])
-
-# convert risk scores into recurrence probabilities
-knowles_imputed$predicted_prob <- 1 - (baseline_survival_at_time^exp(knowles_imputed$risk_score))
-
-# Decision Curve Analysis
-dca_results <- decision_curve(Recurrence ~ predicted_prob,
-  data = knowles_imputed,
-  thresholds = seq(0.01, 0.5, by = 0.01),
-  family = "binomial",
-  policy = "opt-in"
-)
-
-# plot Decision Curve
-plot_decision_curve(dca_results,
-  curve.names = "Cox Model",
-  col = "blue", lwd = 2,
-  legend.position = "none",
-  standardize = FALSE
-)
+# Print AUC
+print(auc_result$AUC)
+plot(auc_result, time = 12, col = "red", title = "Time-Dependent ROC Curve (12 Months)")

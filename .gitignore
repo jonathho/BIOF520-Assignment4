@@ -3,9 +3,10 @@
 .RData
 .Ruserdata
 .Rprofile
+.vscode
 .lintr
-data/**
-figures/**
-misc/**
-renv/**
+data
+figures
+misc
+renv
 BIOF520-Assignment4.Rproj
